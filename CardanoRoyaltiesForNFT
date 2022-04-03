@@ -1,0 +1,520 @@
+#The first step is to mint a nameless token that contains the metadata of the royalty percentage and the Cardano address that royalty fee goes to.
+#The second step is to burn this token.
+#The third step is to mint your NFT's as normal, using the same policyID you used to create the above token.
+
+tokenamount="1"
+fee="0"
+output="0"
+
+______________________________________
+
+cardano-cli address key-gen --verification-key-file payment.vkey --signing-key-file payment.skey
+
+______________________________________
+
+cardano-cli address build --payment-verification-key-file payment.vkey --out-file payment.addr --mainnet
+
+______________________________________
+
+#Send 2ADA to the above address - payment.addr
+
+______________________________________
+
+cardano-cli query protocol-parameters --mainnet --out-file protocol.json
+
+______________________________________
+
+mkdir policy
+
+______________________________________
+
+cardano-cli address key-gen --verification-key-file policy.vkey --signing-key-file policy.skey
+
+______________________________________
+
+touch policy/policy.script && echo "" > policy/policy.script
+
+______________________________________
+
+#Paste below brackets and text into policy.script file (located in your cardano-my-node policy directory) and save.
+
+{
+    "scripts": [
+        {
+            "keyHash": "00000000000000000000000000000000000",
+            "type": "sig"
+        },
+        {
+            "slot": 00000000,
+            "type": "before"
+        }
+    ],
+    "type": "all"
+}
+
+______________________________________
+#Run below command and paste output into your policy.script "keyHash" field and save.  
+#(Your policy.script is located in your cardano-my-node > policy folder.)
+
+cardano-cli address key-hash --payment-verification-key-file policy.vkey
+
+cardano-cli query tip --mainnet
+
+______________________________________
+
+#Now we create the metadata file for your NFT.
+#Copy the below metadata text into a text editor, edit and change the rate to your desired royalty amount.  0.02 is 2%, 0.125 is 12.5% etc.  
+
+#Edit the Metadata with your own Cardano wallet address you want the royalties sent to.  Note that long Cardano addresses need to be split between two lines because each line has a character limit.  If you devide your address roughly in half, you will be fine.  For example, the full address in the example below is addrSplitYourRoyaltyAddressInHalfAndPasteHereSecondHalfOfRoyaltyAddr00000000000000.
+
+{
+"777":{
+  "rate": "0.02",
+    "addr": [
+      "addrSplitYourRoyaltyAddressInHalfAndPasteHere",
+      "SecondHalfOfRoyaltyAddr00000000000000000"
+      ]
+ }
+}
+
+______________________________________
+
+cardano-cli transaction policyid --script-file ./policy/policy.script >> policy/policyID
+
+______________________________________
+
+#update the below path with your Ubuntu username. 
+
+scriptpath="/home/INSERTyourUBUNTUusernameHERE/cardano-my-node/policy/policy.script" 
+______________________________________
+
+cardano-cli query utxo --address $(cat payment.addr) --mainnet
+______________________________________
+
+#Copy and paste the info from the above command to populate these values of the same name. 
+#You can use right-click menu to copy from terminal.
+
+txhash="InsertTxHashFromAboveCommand0000000000"
+txix="0"
+funds="2000000"
+policyid=$(cardano-cli transaction policyid --script-file ./policy/policy.script)
+
+______________________________________
+
+currentSlot=$(cardano-cli query tip --mainnet | jq -r '.slot')
+echo Current Slot: $currentSlot
+______________________________________
+
+
+cardano-cli transaction build-raw \
+--tx-in $txhash#$txix \
+--tx-out $(cat payment.addr)+$output+"$tokenamount $policyid" \
+--mint="$tokenamount $policyid" \
+--minting-script-file $scriptpath \
+--metadata-json-file royaltymetadata.json \
+--invalid-hereafter $(( ${currentSlot} + 1000)) \
+--fee $fee \
+--out-file matx.raw
+______________________________________
+
+minfee=$(cardano-cli transaction calculate-min-fee \
+--tx-body-file matx.raw \
+--tx-in-count 1 \
+--tx-out-count 1 \
+--mainnet \
+--witness-count 1 \
+--byron-witness-count 0 \
+--protocol-params-file protocol.json | awk '{ print $1 }')
+echo $minfee
+______________________________________
+
+output=$((${funds}-${minfee}))
+echo $output
+______________________________________
+
+cardano-cli transaction build-raw \
+--tx-in $txhash#$txix \
+--tx-out $(cat payment.addr)+$output+"$tokenamount $policyid" \
+--mint="$tokenamount $policyid" \
+--minting-script-file $scriptpath \
+--metadata-json-file royaltymetadata.json \
+--invalid-hereafter $(( ${currentSlot} + 1000)) \
+--fee $minfee \
+--out-file matx.raw
+______________________________________
+
+cardano-cli transaction sign \
+ --tx-body-file matx.raw \
+ --signing-key-file policy.skey \
+ --signing-key-file payment.skey \
+ --mainnet \
+ --out-file tx.signed
+
+______________________________________
+ 
+cardano-cli transaction submit \
+ --tx-file tx.signed \
+ --mainnet
+
+______________________________________
+
+#Now we need to burn the token we've just created.  
+
+______________________________________
+
+cardano-cli query utxo --address $(cat payment.addr) --mainnet
+
+______________________________________
+#Copy and paste the info from the above command to populate these values of the same name. 
+#You can use right-click menu to copy from terminal.
+
+txhash="7fa2803363d6197b4fd4e7ed3065b0eb24a79428cb854621689a35ed5827dbf6"
+txix="0"
+funds="1817119"
+policyid=$(cardano-cli transaction policyid --script-file ./policy/policy.script)
+burnfee="0"
+burnoutput="0"
+______________________________________
+
+cardano-cli transaction build-raw \
+--tx-in $txhash#$txix \
+--tx-out $(cat payment.addr)+$output \
+--mint="-1 $policyid" \
+--minting-script-file $scriptpath \
+--metadata-json-file royaltymetadata.json \
+--invalid-hereafter $(( ${currentSlot} + 1000)) \
+--fee $burnfee \
+--out-file burning.raw
+______________________________________
+
+burnfee=$(cardano-cli transaction calculate-min-fee \
+--tx-body-file matx.raw \
+--tx-in-count 1 \
+--tx-out-count 1 \
+--mainnet \
+--witness-count 1 \
+--byron-witness-count 0 \
+--protocol-params-file protocol.json | awk '{ print $1 }')
+echo $burnfee
+______________________________________
+
+output=$((${funds}-${burnfee}))
+echo $output
+______________________________________
+
+cardano-cli transaction build-raw \
+--tx-in $txhash#$txix \
+--tx-out $(cat payment.addr)+$output \
+--mint="-1 $policyid" \
+--minting-script-file $scriptpath \
+--metadata-json-file royaltymetadata.json \
+--invalid-hereafter $(( ${currentSlot} + 1000)) \
+--fee $burnfee \
+--out-file burning.raw
+______________________________________
+
+cardano-cli transaction sign \
+ --tx-body-file burning.raw \
+ --signing-key-file policy.skey \
+ --signing-key-file payment.skey \
+ --mainnet \
+ --out-file burning.signed
+
+______________________________________
+ 
+cardano-cli transaction submit \
+ --tx-file burning.signed \
+ --mainnet
+______________________________________
+
+#commence standard NFT Minting instructions.
+
+#First we must turn your desired NFT name into a string of characters called a Base16 code.  Make sure you use a different name for each NFT. This name should not have spaces.  Paste the Base16 string into the next command for "tokenname". 
+Note - This name won't be the display name of your NFT.  The dispay name of your NFT is set separately in the metadata.json file. 
+
+______________________________________
+
+cd $NODE_HOME
+echo -n "EnterDesiredAssetNameHere" | xxd -ps
+
+______________________________________
+
+tokenname="InsertYourBase16codeHere"
+tokenamount="1"
+fee="0"
+output="0"
+receiver="PasteCardanoAddressYouWantTheNFTsentToaddr00000000000000000000000000000000000000000000"
+
+______________________________________
+#The below commands create a new Policy ID, payment address, policy.skey, policy.vkey, payment.skey and payment.vkey.  Note - You will not want to do this if you are minting additional NFT's for an existing collection.  You should reuse the same Policy for a whole collection.  Not create a new policy.  A policy can be reused until its expired slot number is reached.  
+
+#So if you are reusing your policy, just send 2 ADA to the existing payment.addr file in cardano-my-node folder which you have used previously, and skip ahead to the Metadata command further down entitled "#Now we create the metadata file for your NFT."
+#When you are minting many similar NFT's, just change the 2x name fields in metadata.json, and the IPFS hash in metadata.json.  The new base16 encoded name in minting commands and the utxo hash in minting commands.  Then you can jump straight to command "scriptpath="/home/INSERTyourUBUNTUusernameHERE/cardano-my-node/policy/policy.script"
+
+
+#Once you have created a policy and used it to mint, but you want to reuse the policy to mint more at a future date.  Backup the "policy" folder in cardano-my-node folder, and the policy.skey, policy.vkey, payment.skey, payment.vkey and metadata.json files in cardano-my-node folder.  
+#When you want to load the policy again for minting, just past these files back into the same location - paste the "policy" folder containing the policy.scipt and policyID files into cardano-my-node folder.  Paste the metadata.json, payment.addr, payment.skey, payment.vkey, policy.skey and policy.vkey files into cardano-my-node folder.
+______________________________________
+
+cardano-cli address key-gen --verification-key-file payment.vkey --signing-key-file payment.skey
+
+______________________________________
+
+cardano-cli address build --payment-verification-key-file payment.vkey --out-file payment.addr --mainnet
+
+______________________________________
+
+#Send 2ADA to the above address - payment.addr
+
+______________________________________
+
+cardano-cli query protocol-parameters --mainnet --out-file protocol.json
+
+______________________________________
+
+mkdir policy
+
+______________________________________
+
+cardano-cli address key-gen --verification-key-file policy.vkey --signing-key-file policy.skey
+
+______________________________________
+
+touch policy/policy.script && echo "" > policy/policy.script
+
+______________________________________
+
+#Paste below brackets and text into policy.script file (located in your cardano-my-node policy directory) and save.
+
+{
+    "scripts": [
+        {
+            "keyHash": "00000000000000000000000000000000000",
+            "type": "sig"
+        },
+        {
+            "slot": 00000000,
+            "type": "before"
+        }
+    ],
+    "type": "all"
+}
+
+______________________________________
+#Run below command and paste output into your policy.script "keyHash" field and save.  
+#(Your policy.script is located in your cardano-my-node > policy folder.)
+
+cardano-cli address key-hash --payment-verification-key-file policy.vkey
+
+______________________________________
+#Run below command and paste output into above script "slot" section, plus add 2000 slots (33 minutes) or 86,400 (1 day) or 2,592,000 (30 days) or however long you want and save.  1 slot is 1 second.  After the slot number is passed, the policy can no longer be used to mint anything.
+
+cardano-cli query tip --mainnet
+
+______________________________________
+
+#Now we create the metadata file for your NFT.
+#Copy the below metadata text into a text editor, edit and change the "Collection" through to "image" fields to your liking, and save the file with name "metadata.json" in cardano-my-node folder.  The limit of characters (including spaces) per line is 64.
+#(Note - If you have an existing metadata.json file from the same NFT collection, you can just edit the 2 name fields and the IPFS Hash, and any other relevant bits and save.)
+#You can add or deduct headings and fields as necessary.    Just copy and paste a new row with brackets, and edit the text.  You can add or change a heading to "description" or whatever you feel like.
+#The "InsertTheUnbrokenNameOfYourNFThere-NotTheBase16code" field should be the name you Base16 encoded in step one, but paste the unencoded name here, not the Base16 code version of the name.
+
+{
+  "721": {
+    "InsertPolicyIDhere": {
+      "InsertTheOrdinaryNameOfYourNFThere-NoSpaces-NotTheBase16code": {
+        "Collection": ["Futuristic."],
+        "Artist": ["Volodymyr B."],
+        "Rarity": ["Rare"],
+        "ID": ["1 of 3"],
+        "Discord": ["https://discord.gg/8mptBvW52J"],
+        "Twitter": ["https://twitter.com/RStakepool"],        
+        "publisher": ["StakePool: [ROG]", "https://www.rogpool.com"],
+        "name": "e.g. Futuristic McLaren Formula 1 #001",
+        "image": "ipfs://InsertPinataCIDhere"
+      }
+    }
+  }
+}
+
+______________________________________
+
+cardano-cli transaction policyid --script-file ./policy/policy.script >> policy/policyID
+
+______________________________________
+
+#After running above command, go to your cardano-my-node > policy folder and open policyID.  Copy the policyID string and paste it into your metadata.json field "InsertPolicyIDhere" and save metadata.json.
+
+______________________________________
+
+#update the below path with your Ubuntu username. 
+
+scriptpath="/home/INSERTyourUBUNTUusernameHERE/cardano-my-node/policy/policy.script" 
+______________________________________
+
+cardano-cli query utxo --address $(cat payment.addr) --mainnet
+______________________________________
+
+#Copy and paste the info from the above command to populate these values of the same name. 
+#You can use right-click menu to copy from terminal.
+
+txhash="InsertTxHashFromAboveCommand0000000000"
+txix="0"
+funds="2000000"
+policyid=$(cardano-cli transaction policyid --script-file ./policy/policy.script)
+
+______________________________________
+
+currentSlot=$(cardano-cli query tip --mainnet | jq -r '.slot')
+echo Current Slot: $currentSlot
+______________________________________
+
+
+cardano-cli transaction build-raw \
+--tx-in $txhash#$txix \
+--tx-out $receiver+$output+"$tokenamount $policyid.$tokenname" \
+--mint="$tokenamount $policyid.$tokenname" \
+--minting-script-file $scriptpath \
+--metadata-json-file metadata.json \
+--invalid-hereafter $(( ${currentSlot} + 1000)) \
+--fee $fee \
+--out-file matx.raw
+______________________________________
+
+minfee=$(cardano-cli transaction calculate-min-fee \
+--tx-body-file matx.raw \
+--tx-in-count 1 \
+--tx-out-count 1 \
+--mainnet \
+--witness-count 1 \
+--byron-witness-count 0 \
+--protocol-params-file protocol.json | awk '{ print $1 }')
+echo $minfee
+______________________________________
+
+output=$((${funds}-${minfee}))
+echo $output
+______________________________________
+
+cardano-cli transaction build-raw \
+--tx-in $txhash#$txix \
+--tx-out $receiver+$output+"$tokenamount $policyid.$tokenname" \
+--mint="$tokenamount $policyid.$tokenname" \
+--minting-script-file $scriptpath \
+--metadata-json-file metadata.json \
+--invalid-hereafter $(( ${currentSlot} + 1000)) \
+--fee $minfee \
+--out-file matx.raw
+______________________________________
+
+cardano-cli transaction sign \
+ --tx-body-file matx.raw \
+ --signing-key-file policy.skey \
+ --signing-key-file payment.skey \
+ --mainnet \
+ --out-file tx.signed
+
+______________________________________
+ 
+cardano-cli transaction submit \
+ --tx-file tx.signed \
+ --mainnet
+
+
+_______________________________________________________________________________________________________________________________________________________________________
+_______________________________________________________________________________________________________________________________________________________________________
+
+#Note - if you want to mint a lot of NFT's without having to pay 2 ADA into the payment.addr each time - use the commands below.  You can simply load the payment address
+#with a bunch of ADA and keep minting till the ADA in the payment address is depleated.  Note that with each transaction this will send 1.5 ADA to the address receiving the NFT's.
+# The commands below replace those from line #125 onward (cardano-cli query utxo --address $(cat payment.addr) --mainnet).
+______________________________________
+
+output="1500000"
+
+______________________________________
+
+currentSlot=$(cardano-cli query tip --mainnet | jq -r '.slot')
+echo Current Slot: $currentSlot
+
+______________________________________
+
+cardano-cli query utxo \
+    --address $(cat payment.addr) \
+    --mainnet > fullUtxo.out
+
+tail -n +3 fullUtxo.out | sort -k3 -nr > balance.out
+
+cat balance.out
+
+tx_in=""
+total_balance=0
+while read -r utxo; do
+    in_addr=$(awk '{ print $1 }' <<< "${utxo}")
+    idx=$(awk '{ print $2 }' <<< "${utxo}")
+    utxo_balance=$(awk '{ print $3 }' <<< "${utxo}")
+    total_balance=$((${total_balance}+${utxo_balance}))
+    echo TxHash: ${in_addr}#${idx}
+    echo ADA: ${utxo_balance}
+    tx_in="${tx_in} --tx-in ${in_addr}#${idx}"
+done < balance.out
+txcnt=$(cat balance.out | wc -l)
+echo Total ADA balance: ${total_balance}
+echo Number of UTXOs: ${txcnt}
+policyid=$(cardano-cli transaction policyid --script-file ./policy/policy.script)
+
+______________________________________
+
+cardano-cli transaction build-raw \
+    ${tx_in} \
+    --tx-out $(cat payment.addr)+0 \
+    --tx-out ${receiver}+0 \
+    --invalid-hereafter $(( ${currentSlot} + 1000)) \
+    --fee $fee \
+    --out-file matx.raw
+
+______________________________________
+
+minfee=$(cardano-cli transaction calculate-min-fee \
+--tx-body-file matx.raw \
+--tx-in-count 3 \
+--tx-out-count 3 \
+--mainnet \
+--witness-count 4 \
+--byron-witness-count 0 \
+--protocol-params-file protocol.json | awk '{ print $1 }')
+echo $minfee
+
+______________________________________
+
+
+txOut=$((${total_balance}-${minfee}-${output}))
+echo Change Output: ${txOut}
+
+______________________________________
+
+cardano-cli transaction build-raw \
+    ${tx_in} \
+--tx-out $(cat payment.addr)+${txOut} \
+--tx-out $receiver+$output+"$tokenamount $policyid.$tokenname" \
+--mint="$tokenamount $policyid.$tokenname" \
+--minting-script-file $scriptpath \
+--metadata-json-file metadata.json \
+--invalid-hereafter $(( ${currentSlot} + 1000)) \
+--fee ${minfee} \
+--out-file matx.raw
+
+
+______________________________________
+
+cardano-cli transaction sign \
+ --tx-body-file matx.raw \
+ --signing-key-file policy.skey \
+ --signing-key-file payment.skey \
+ --mainnet \
+ --out-file tx.signed
+
+______________________________________
+ 
+cardano-cli transaction submit \
+ --tx-file tx.signed \
+ --mainnet
