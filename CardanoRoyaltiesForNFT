@@ -16,7 +16,7 @@ cardano-cli address build --payment-verification-key-file payment.vkey --out-fil
 
 ______________________________________
 
-#Send 2ADA to the above address - payment.addr
+#Send 3ADA to the above address - payment.addr
 
 ______________________________________
 
@@ -58,6 +58,9 @@ ______________________________________
 
 cardano-cli address key-hash --payment-verification-key-file policy.vkey
 
+______________________________________
+#Run below command and paste output into above script "slot" section, plus add 2000 slots (33 minutes) or 86,400 (1 day) or 2,592,000 (30 days) or however long you want and save.  1 slot is 1 second.  After the slot number is passed, the policy can no longer be used to mint anything.
+
 cardano-cli query tip --mainnet
 
 ______________________________________
@@ -79,6 +82,9 @@ ______________________________________
 
 ______________________________________
 
+#Save the above text file into cardano-my-node folder as "royaltymetadata.json"
+______________________________________
+
 cardano-cli transaction policyid --script-file ./policy/policy.script >> policy/policyID
 
 ______________________________________
@@ -96,7 +102,7 @@ ______________________________________
 
 txhash="InsertTxHashFromAboveCommand0000000000"
 txix="0"
-funds="2000000"
+funds="2700000"
 policyid=$(cardano-cli transaction policyid --script-file ./policy/policy.script)
 
 ______________________________________
@@ -244,73 +250,6 @@ tokenamount="1"
 fee="0"
 output="0"
 receiver="PasteCardanoAddressYouWantTheNFTsentToaddr00000000000000000000000000000000000000000000"
-
-______________________________________
-#The below commands create a new Policy ID, payment address, policy.skey, policy.vkey, payment.skey and payment.vkey.  Note - You will not want to do this if you are minting additional NFT's for an existing collection.  You should reuse the same Policy for a whole collection.  Not create a new policy.  A policy can be reused until its expired slot number is reached.  
-
-#So if you are reusing your policy, just send 2 ADA to the existing payment.addr file in cardano-my-node folder which you have used previously, and skip ahead to the Metadata command further down entitled "#Now we create the metadata file for your NFT."
-#When you are minting many similar NFT's, just change the 2x name fields in metadata.json, and the IPFS hash in metadata.json.  The new base16 encoded name in minting commands and the utxo hash in minting commands.  Then you can jump straight to command "scriptpath="/home/INSERTyourUBUNTUusernameHERE/cardano-my-node/policy/policy.script"
-
-
-#Once you have created a policy and used it to mint, but you want to reuse the policy to mint more at a future date.  Backup the "policy" folder in cardano-my-node folder, and the policy.skey, policy.vkey, payment.skey, payment.vkey and metadata.json files in cardano-my-node folder.  
-#When you want to load the policy again for minting, just past these files back into the same location - paste the "policy" folder containing the policy.scipt and policyID files into cardano-my-node folder.  Paste the metadata.json, payment.addr, payment.skey, payment.vkey, policy.skey and policy.vkey files into cardano-my-node folder.
-______________________________________
-
-cardano-cli address key-gen --verification-key-file payment.vkey --signing-key-file payment.skey
-
-______________________________________
-
-cardano-cli address build --payment-verification-key-file payment.vkey --out-file payment.addr --mainnet
-
-______________________________________
-
-#Send 2ADA to the above address - payment.addr
-
-______________________________________
-
-cardano-cli query protocol-parameters --mainnet --out-file protocol.json
-
-______________________________________
-
-mkdir policy
-
-______________________________________
-
-cardano-cli address key-gen --verification-key-file policy.vkey --signing-key-file policy.skey
-
-______________________________________
-
-touch policy/policy.script && echo "" > policy/policy.script
-
-______________________________________
-
-#Paste below brackets and text into policy.script file (located in your cardano-my-node policy directory) and save.
-
-{
-    "scripts": [
-        {
-            "keyHash": "00000000000000000000000000000000000",
-            "type": "sig"
-        },
-        {
-            "slot": 00000000,
-            "type": "before"
-        }
-    ],
-    "type": "all"
-}
-
-______________________________________
-#Run below command and paste output into your policy.script "keyHash" field and save.  
-#(Your policy.script is located in your cardano-my-node > policy folder.)
-
-cardano-cli address key-hash --payment-verification-key-file policy.vkey
-
-______________________________________
-#Run below command and paste output into above script "slot" section, plus add 2000 slots (33 minutes) or 86,400 (1 day) or 2,592,000 (30 days) or however long you want and save.  1 slot is 1 second.  After the slot number is passed, the policy can no longer be used to mint anything.
-
-cardano-cli query tip --mainnet
-
 ______________________________________
 
 #Now we create the metadata file for your NFT.
@@ -339,11 +278,11 @@ ______________________________________
 
 ______________________________________
 
-cardano-cli transaction policyid --script-file ./policy/policy.script >> policy/policyID
+#Save the above text file into your cardano-my-node folder as "metadata.json"
 
 ______________________________________
 
-#After running above command, go to your cardano-my-node > policy folder and open policyID.  Copy the policyID string and paste it into your metadata.json field "InsertPolicyIDhere" and save metadata.json.
+#go to your cardano-my-node > policy folder and open policyID.  Copy the policyID string and paste it into your metadata.json field "InsertPolicyIDhere" and save metadata.json.
 
 ______________________________________
 
@@ -360,7 +299,7 @@ ______________________________________
 
 txhash="InsertTxHashFromAboveCommand0000000000"
 txix="0"
-funds="2000000"
+funds="26000000"
 policyid=$(cardano-cli transaction policyid --script-file ./policy/policy.script)
 
 ______________________________________
