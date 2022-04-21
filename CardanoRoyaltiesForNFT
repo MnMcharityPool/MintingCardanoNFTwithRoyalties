@@ -16,7 +16,7 @@ cardano-cli address build --payment-verification-key-file payment.vkey --out-fil
 
 ______________________________________
 
-#Send 3ADA to the above address - payment.addr
+#Send 2.5ADA to the above address - payment.addr
 
 ______________________________________
 
@@ -102,7 +102,7 @@ ______________________________________
 
 txhash="InsertTxHashFromAboveCommand0000000000"
 txix="0"
-funds="2700000"
+funds="2500000"
 policyid=$(cardano-cli transaction policyid --script-file ./policy/policy.script)
 
 ______________________________________
@@ -176,7 +176,7 @@ ______________________________________
 
 txhash="7fa2803363d6197b4fd4e7ed3065b0eb24a79428cb854621689a35ed5827dbf6"
 txix="0"
-funds="1817119"
+funds="2400000"
 policyid=$(cardano-cli transaction policyid --script-file ./policy/policy.script)
 burnfee="0"
 burnoutput="0"
@@ -235,7 +235,7 @@ ______________________________________
 
 #commence standard NFT Minting instructions.
 
-#First we must turn your desired NFT name into a string of characters called a Base16 code.  Make sure you use a different name for each NFT. This name should not have spaces.  Paste the Base16 string into the next command for "tokenname". 
+#First we must turn your desired NFT name into a string of characters called a Base16 code.  If the base16 code shows as two separate rows in the terminal - it means it is too long.  Shorten the name.  Make sure you use a different name for each NFT. This name should not have spaces.  Paste the Base16 string into the next command for "tokenname". 
 Note - This name won't be the display name of your NFT.  The dispay name of your NFT is set separately in the metadata.json file. 
 
 ______________________________________
@@ -299,7 +299,7 @@ ______________________________________
 
 txhash="InsertTxHashFromAboveCommand0000000000"
 txix="0"
-funds="26000000"
+funds="2300000"
 policyid=$(cardano-cli transaction policyid --script-file ./policy/policy.script)
 
 ______________________________________
